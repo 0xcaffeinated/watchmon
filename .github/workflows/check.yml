@@ -59,8 +59,21 @@ jobs:
         if: always()
         run: |
           mkdir -p state
-          cp state.json  state/state.json  2>/dev/null || true
-          cp history.db  state/history.db  2>/dev/null || true
+          cp state.json state/state.json 2>/dev/null || true
+          # sqlite backup(), not cp: the database runs in WAL mode, so recent
+          # writes live in history.db-wal and a plain copy of history.db alone
+          # lands an EMPTY database — history would never accumulate.
+          python - <<'PY'
+          import sqlite3, pathlib
+          if pathlib.Path("history.db").exists():
+              src = sqlite3.connect("history.db")
+              dst = sqlite3.connect("state/history.db")
+              src.backup(dst)
+              dst.close(); src.close()
+              print("history rows:",
+                    sqlite3.connect("state/history.db")
+                           .execute("SELECT COUNT(*) FROM products").fetchone()[0])
+          PY
           if [ -n "$(git status --porcelain state)" ]; then
             git config user.name  "watch-bot"
             git config user.email "watch-bot@users.noreply.github.com"
