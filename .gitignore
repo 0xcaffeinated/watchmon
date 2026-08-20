@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.pytest_cache/
+logs/
+
+# Local secrets — the storefront origin and the push topic.
+/site.txt
+/ntfy_topic.txt
+
+# Local run artefacts. Anchored to the root on purpose: the CI workflow
+# persists its own copies under state/, and an unanchored pattern would
+# silently exclude those too, quietly losing all history between runs.
+/state.json
+/monitor.lock
+/history.db
+/history.db-wal
+/history.db-shm

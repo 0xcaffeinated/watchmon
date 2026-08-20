@@ -1,0 +1,65 @@
+name: watch-check
+
+on:
+  schedule:
+    # Every 30 minutes. Free-tier cron drifts under load — expect 40-60min in
+    # practice. Scheduled workflows also auto-disable after 60 days without
+    # repo activity, so a commit is needed occasionally to keep this alive.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  # Never let a delayed run overlap the next one; the local job uses an flock
+  # for the same reason.
+  group: watch-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache the browser download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium
+
+      - name: Install
+        run: |
+          pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+
+      # State lives in the repo so alert de-duplication and price history
+      # survive between runs; a runner is otherwise wiped every time.
+      - name: Restore state
+        run: |
+          mkdir -p logs
+          [ -f state/state.json ]  && cp state/state.json  state.json  || true
+          [ -f state/history.db ]  && cp state/history.db  history.db  || true
+
+      - name: Check
+        env:
+          WATCH_SITE_BASE: ${{ secrets.WATCH_SITE_BASE }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python monitor.py --force -v
+
+      - name: Persist state
+        if: always()
+        run: |
+          mkdir -p state
+          cp state.json  state/state.json  2>/dev/null || true
+          cp history.db  state/history.db  2>/dev/null || true
+          if [ -n "$(git status --porcelain state)" ]; then
+            git config user.name  "watch-bot"
+            git config user.email "watch-bot@users.noreply.github.com"
+            git add state
+            git commit -m "state: $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
