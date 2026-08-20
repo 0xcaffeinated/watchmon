@@ -1,0 +1,8 @@
+{
+  "alerted": {},
+  "last_attempt_ts": 1787231505.0364969,
+  "updated": "2026-08-20T13:13:05+00:00",
+  "failures": 1,
+  "last_failure": "network unreachable",
+  "backoff_until_ts": 1787232105.0364969
+}
