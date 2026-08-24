@@ -1,10 +1,10 @@
 {
   "alerted": {},
-  "last_attempt_ts": 1787605025.2498968,
-  "updated": "2026-08-24T20:58:25+00:00",
-  "failures": 1,
-  "last_failure": "network unreachable",
-  "backoff_until_ts": 1787605625.2498968,
-  "last_success_ts": 1787602880.3477104,
-  "last_history_ts": 1787596361.9818392
+  "last_attempt_ts": 1787606736.0312757,
+  "updated": "2026-08-24T21:32:04+00:00",
+  "failures": 0,
+  "last_failure": null,
+  "backoff_until_ts": 0,
+  "last_success_ts": 1787606736.0312757,
+  "last_history_ts": 1787606736.0312757
 }
