@@ -12,10 +12,41 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+from .models import Rule
+
 # --------------------------------------------------------------- brands ----
 
 # Watched for BOTH features: the ₹8,000 automatic rule and price history.
 BRANDS = ("invicta", "casio", "timex", "alba")
+
+# ----------------------------------------------------------------- rules ----
+# What to watch, as data. Adding a category means appending a Rule here; no
+# logic anywhere else knows what a product category is.
+#
+# To add, say, mechanical keyboards:
+#     Rule(name="brown-switch keyboards",
+#          brands=("keychron", "logitech"),
+#          match_query="{brand}+mechanical+keyboard",
+#          history_query="{brand}+keyboard",
+#          include=r"mechanical",
+#          ceiling=6000,
+#          require_spec={r"switch type": r"brown"})
+
+RULES = (
+    Rule(
+        name="automatic watches",
+        brands=BRANDS,
+        # Narrow sweep drives the ceiling rule; the wide sweep feeds history.
+        match_query="{brand}+automatic",
+        history_query="{brand}+watch",
+        # Must include "mechanical": one brand lists its automatics that way
+        # and never as "Automatic", which made the whole brand invisible.
+        include=r"automatic|mechanical|self[\s-]?wind",
+        ceiling=8000,
+        require_spec={r"(type of )?movement": r"automatic|self[\s-]?wind"},
+        reject_spec={r"(type of )?movement": r"hand[\s-]?wind|manual[\s-]?wind"},
+    ),
+)
 
 # Model families to never alert on, matched case-insensitively against title,
 # page heading and URL.

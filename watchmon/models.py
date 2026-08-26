@@ -16,6 +16,35 @@ def day_of(ts: float) -> str:
 
 
 @dataclass
+class Rule:
+    """One thing worth watching, expressed as data.
+
+    A rule is the *only* place a product category is described. Everything
+    else — history, steal detection, scheduling, notification — is category
+    agnostic, so adding "mechanical keyboards under 6k with brown switches"
+    means appending a Rule, not touching any logic.
+
+    `require_spec` / `reject_spec` map a specifications-table label to a
+    pattern its value must (or must not) match. That generalises the original
+    hard-coded "Movement must say Automatic, not Hand Winding" check.
+    """
+
+    name: str
+    brands: tuple[str, ...]
+    match_query: str = "{brand}"
+    history_query: str = "{brand}"
+    include: str | None = None
+    ceiling: int | None = None
+    require_spec: dict[str, str] = field(default_factory=dict)
+    reject_spec: dict[str, str] = field(default_factory=dict)
+    mute: tuple[str, ...] = ()
+
+    def queries(self, wide: bool = False) -> list[str]:
+        template = self.history_query if wide else self.match_query
+        return [template.format(brand=b) for b in self.brands]
+
+
+@dataclass
 class Listing:
     """A product as it appears on a search results card.
 
@@ -29,6 +58,7 @@ class Listing:
     title: str
     price: int | None
     brand: str | None = None
+    rule: str | None = None
 
 
 @dataclass
@@ -54,6 +84,7 @@ class Deal:
     title: str
     price: int
     kind: str  # "under_threshold" | "steal"
+    rule: str = ""
     reason: str = ""
     movement: str = ""
     in_stock: bool = True

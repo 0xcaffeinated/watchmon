@@ -10,7 +10,7 @@ import json
 import re
 
 from . import config
-from .models import Listing
+from .models import Listing, Rule
 
 PRICE_RE = re.compile(r"₹\s?([\d,]+)")
 
@@ -93,21 +93,65 @@ def is_ignored(title: str, url: str = "") -> bool:
     return any(re.search(p, haystack, re.IGNORECASE) for p in config.IGNORE_PATTERNS)
 
 
-def extract_movement(text: str) -> str | None:
-    """Read movement from the specifications table.
+def extract_spec(text: str, label: str) -> str | None:
+    """Read one value out of the specifications table.
 
-    Anchored on a standalone 'Movement' label: matching any line *containing*
+    Anchored on a *standalone* label line: matching any line merely containing
     the word scraped customer reviews instead ("Loved it..nh70 tmi movement"),
-    which made the automatic-vs-quartz guard meaningless.
+    which made the original movement guard meaningless. `label` is a regex, so
+    a rule can write "(type of )?movement" or "switch type".
     """
     lines = [ln.strip() for ln in (text or "").splitlines()]
     for i, line in enumerate(lines):
-        if not re.fullmatch(r"(type of )?movement", line, re.IGNORECASE):
+        if not re.fullmatch(label, line, re.IGNORECASE):
             continue
         for value in lines[i + 1 :]:
             if value:
                 return value[:80]
     return None
+
+
+def extract_movement(text: str) -> str | None:
+    """Backwards-compatible shim for the watch rule's movement spec."""
+    return extract_spec(text, r"(type of )?movement")
+
+
+def check_specs(page_text: str, title: str, rule: Rule) -> tuple[bool, str]:
+    """Does this product page satisfy the rule's specification constraints?
+
+    Replaces the hard-coded automatic-vs-hand-wound test. The spec table wins
+    when the label is present; when it is absent the title is a fallback, but
+    only on an explicit match — an ambiguous title is not enough.
+    """
+    for label, wanted in rule.require_spec.items():
+        value = extract_spec(page_text, label)
+        if value is None:
+            if re.search(wanted, title, re.IGNORECASE):
+                continue
+            return False, f"no {label!r} spec and the title does not establish it"
+        if not re.search(wanted, value, re.IGNORECASE):
+            return False, f"{label} spec says {value!r}"
+
+    for label, unwanted in rule.reject_spec.items():
+        value = extract_spec(page_text, label)
+        if value is not None and re.search(unwanted, value, re.IGNORECASE):
+            return False, f"{label} spec says {value!r} — excluded by rule"
+
+    return True, "specs match"
+
+
+def matches_rule(title: str, url: str, rule: Rule) -> bool:
+    """Card-level filter: right brand, matches the rule, not muted."""
+    haystack = f"{title} {url}"
+    if rule.brands and not any(
+        re.search(rf"\b{re.escape(b)}\b", haystack, re.IGNORECASE) for b in rule.brands
+    ):
+        return False
+    if rule.include and not re.search(rule.include, haystack, re.IGNORECASE):
+        return False
+    if any(re.search(m, haystack, re.IGNORECASE) for m in rule.mute):
+        return False
+    return not is_ignored(title, url)
 
 
 def selected_variant_out_of_stock(text: str) -> bool:

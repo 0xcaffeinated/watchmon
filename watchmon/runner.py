@@ -17,7 +17,7 @@ import time
 
 from . import config, parsing, steals
 from .history import PriceHistory
-from .models import Deal, Listing, PriceStats, now_iso
+from .models import Deal, Listing, PriceStats, Rule, now_iso
 from .notify import Notifier
 from .runstate import (
     classify_wake,
@@ -85,8 +85,8 @@ def _in_stock_or_dropped(page: ProductPage, kind: str) -> bool:
     return False
 
 
-def _confirm_automatic(page: ProductPage, listing: Listing, threshold: int) -> Deal | None:
-    """Apply the ₹8,000 automatic rule to a fetched product page."""
+def _confirm_ceiling(page: ProductPage, listing: Listing, rule: Rule, threshold: int) -> Deal | None:
+    """Apply a rule's price ceiling to a fetched product page."""
     if page.price is None:
         log.warning("skip %s: JSON-LD carried no price", page.pid)
         return None
@@ -101,9 +101,9 @@ def _confirm_automatic(page: ProductPage, listing: Listing, threshold: int) -> D
         log.info("skip %s: ₹%s (card said ₹%s)", page.pid, page.price, listing.price)
         return None
 
-    automatic, movement_note = parsing.is_automatic_movement(page.movement, page.title)
-    if not automatic:
-        log.info("skip %s: %s", page.pid, movement_note)
+    ok, spec_note = parsing.check_specs(page.text, page.title, rule)
+    if not ok:
+        log.info("skip %s: %s", page.pid, spec_note)
         return None
 
     if not _in_stock_or_dropped(page, "under_threshold"):
@@ -116,11 +116,17 @@ def _confirm_automatic(page: ProductPage, listing: Listing, threshold: int) -> D
         title=page.title,
         price=page.price,
         kind="under_threshold",
+        rule=rule.name,
         reason=f"below ₹{threshold:,}",
         movement=page.movement or "(not listed)",
         in_stock=page.in_stock,
         stock_note=page.stock_note,
     )
+
+
+def _confirm_automatic(page: ProductPage, listing: Listing, threshold: int) -> Deal | None:
+    """Compatibility shim: the watch rule, which is RULES[0]."""
+    return _confirm_ceiling(page, listing, config.RULES[0], threshold)
 
 
 def _confirm_steal(page: ProductPage, stats: PriceStats, card_reason: str) -> Deal | None:
@@ -175,42 +181,51 @@ class Monitor:
 
     def _sweep_all(
         self, scraper: StoreScraper, wide: bool
-    ) -> tuple[list[Listing], list[Listing]]:
-        """Sweeps sharing one browser. Returns (automatic candidates, tracked).
+    ) -> tuple[list[tuple[Listing, Rule]], list[Listing]]:
+        """Sweeps sharing one browser. Returns (ceiling candidates, tracked).
 
-        `wide` adds the every-watch-of-the-brand pass that feeds history. It is
-        skipped on most ticks: see config.HISTORY_INTERVAL_SEC.
+        Iterates rules, so adding a product category adds sweeps here without
+        changing any logic. `wide` adds the everything-of-the-brand pass that
+        feeds history; it is skipped on most ticks.
         """
-        automatic_candidates: list[Listing] = []
+        candidates: list[tuple[Listing, Rule]] = []
         all_watched: dict[str, Listing] = {}
 
-        for brand in config.BRANDS:
-            listings = scraper.sweep(
-                config.AUTOMATIC_QUERY.format(brand=brand),
-                config.MAX_PAGES_AUTOMATIC,
-                label=f"{brand}/auto",
-            )
-            found = parsing.select_candidates(listings, self.threshold)
-            automatic_candidates.extend(found)
-            for item in parsing.watched_listings(listings):
-                all_watched.setdefault(item.pid, item)
-            log.info("%s/auto: %d listings, %d candidate(s)", brand, len(listings), len(found))
+        for rule in config.RULES:
+            ceiling = rule.ceiling if rule.ceiling is not None else self.threshold
+            for query in rule.queries():
+                listings = scraper.sweep(
+                    query, config.MAX_PAGES_AUTOMATIC, label=f"{query}"
+                )
+                found = 0
+                for item in listings:
+                    if not parsing.matches_rule(item.title, item.url, rule):
+                        continue
+                    item.brand = parsing.brand_of(item.title, item.url)
+                    item.rule = rule.name
+                    all_watched.setdefault(item.pid, item)
+                    if item.price is None or item.price <= ceiling * config.VERIFY_MARGIN:
+                        candidates.append((item, rule))
+                        found += 1
+                log.info("%s: %d listings, %d candidate(s)", query, len(listings), found)
 
         if wide:
-            for brand in config.BRANDS:
-                listings = scraper.sweep(
-                    config.HISTORY_QUERY.format(brand=brand),
-                    config.MAX_PAGES_HISTORY,
-                    label=f"{brand}/all",
-                )
-                watched = parsing.watched_listings(listings)
-                for item in watched:
-                    all_watched.setdefault(item.pid, item)
-                log.info("%s/all: %d listings, %d watched", brand, len(listings), len(watched))
+            for rule in config.RULES:
+                for query in rule.queries(wide=True):
+                    listings = scraper.sweep(
+                        query, config.MAX_PAGES_HISTORY, label=f"{query}"
+                    )
+                    kept = parsing.watched_listings(listings)
+                    for item in kept:
+                        all_watched.setdefault(item.pid, item)
+                    log.info("%s: %d listings, %d watched", query, len(listings), len(kept))
         else:
-            log.info("wide history sweep not due — tracking %d from the automatic sweep", len(all_watched))
+            log.info(
+                "wide history sweep not due — tracking %d from the rule sweeps",
+                len(all_watched),
+            )
 
-        return automatic_candidates, list(all_watched.values())
+        return candidates, list(all_watched.values())
 
     def _screen_steals(self, tracked: list[Listing], now: float) -> list[tuple[Listing, PriceStats, str]]:
         """Which tracked products look like steals on their card price."""
@@ -232,7 +247,7 @@ class Monitor:
         deals: list[Deal] = []
 
         with StoreScraper(headless=self.headless) as scraper:
-            automatic_candidates, tracked = self._sweep_all(scraper, wide=wide)
+            ceiling_candidates, tracked = self._sweep_all(scraper, wide=wide)
 
             # Steal screening runs against history *before* today's prices are
             # written, so a product cannot be compared against itself.
@@ -244,11 +259,13 @@ class Monitor:
                 len(steal_candidates),
             )
 
-            unique = {c.pid: c for c in automatic_candidates}
-            ordered = sorted(unique.values(), key=lambda x: x.price if x.price is not None else 0)
+            unique = {c.pid: (c, r) for c, r in ceiling_candidates}
+            ordered = sorted(
+                unique.values(), key=lambda cr: cr[0].price if cr[0].price is not None else 0
+            )
             if len(ordered) > config.MAX_VERIFY_PER_RUN:
                 log.warning(
-                    "%d automatic candidates exceed the %d/run cap — NOT checking %d "
+                    "%d candidates exceed the %d/run cap — NOT checking %d "
                     "(cheapest are checked first)",
                     len(ordered),
                     config.MAX_VERIFY_PER_RUN,
@@ -256,11 +273,12 @@ class Monitor:
                 )
                 ordered = ordered[: config.MAX_VERIFY_PER_RUN]
 
-            for listing in ordered:
+            for listing, rule in ordered:
                 page = scraper.fetch_product(listing)
                 if page is None:
                     continue
-                deal = _confirm_automatic(page, listing, self.threshold)
+                ceiling = rule.ceiling if rule.ceiling is not None else self.threshold
+                deal = _confirm_ceiling(page, listing, rule, ceiling)
                 if deal:
                     deals.append(deal)
                 time.sleep(0.8)

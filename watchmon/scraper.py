@@ -56,6 +56,9 @@ class ProductPage:
     movement: str | None
     in_stock: bool
     stock_note: str
+    # Raw page text, so a rule can read any specification it likes rather than
+    # the scraper having to know which ones matter.
+    text: str = ""
 
 
 class StoreScraper:
@@ -251,4 +254,5 @@ class StoreScraper:
             movement=parsing.extract_movement(text),
             in_stock=in_stock,
             stock_note=stock_note,
+            text=text,
         )
