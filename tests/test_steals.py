@@ -17,7 +17,7 @@ from watchmon.models import Deal, PriceStats  # noqa: E402
 from watchmon.runner import decide_alerts  # noqa: E402
 
 
-def stats(days=10, median=10000, min_ever=9000):
+def stats(days=config.STEAL_MIN_HISTORY_DAYS + 5, median=10000, min_ever=9000):
     return PriceStats(days=days, median=median, min_ever=min_ever)
 
 
@@ -54,7 +54,8 @@ def test_no_alert_before_enough_history():
     """The single most important guard: a product seen for the first time has
     no baseline, so every first sighting would otherwise look like a steal."""
     ok, reason = steals.is_steal(5000, stats(days=2, median=10000, min_ever=10000))
-    assert not ok and "need 5" in reason
+    assert not ok
+    assert f"need {config.STEAL_MIN_HISTORY_DAYS}" in reason
 
 
 def test_history_guard_holds_at_the_boundary():

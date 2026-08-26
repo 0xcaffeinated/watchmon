@@ -53,7 +53,7 @@ MAX_VERIFY_PER_RUN = 40
 # Both conditions must hold, and only after enough history exists.
 STEAL_DISCOUNT = 0.40  # >= 40% below its 30-day median
 STEAL_MEDIAN_WINDOW_DAYS = 30
-STEAL_MIN_HISTORY_DAYS = 5  # distinct days observed before it can ever fire
+STEAL_MIN_HISTORY_DAYS = 14  # distinct days before a median means "normal"
 STEAL_NEAR_LOW_RATIO = 1.02  # within 2% of the cheapest ever seen
 # Below this, percentages are noise and the hits are all cheap quartz: at a
 # ₹1,500 floor, every one of the 16-20 dips in 10 days was a sub-₹4,000 Casio.

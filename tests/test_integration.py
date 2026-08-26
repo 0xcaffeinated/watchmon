@@ -58,7 +58,7 @@ def page(pid="p1", price=4500, title="TIMEX Automatic Watch"):
 
 
 def test_a_steal_is_found_and_confirmed(monitor):
-    seed(monitor.history, "p1", 10000, days=8)
+    seed(monitor.history, "p1", 10000, days=config.STEAL_MIN_HISTORY_DAYS + 3)
     tracked = [Listing(pid="p1", url="https://f.com/x/p/p1", title="Timex Watch",
                        price=4500, brand="timex")]
 
@@ -79,7 +79,7 @@ def test_a_steal_is_found_and_confirmed(monitor):
 
 
 def test_a_normal_price_is_not_a_steal(monitor):
-    seed(monitor.history, "p1", 10000, days=8)
+    seed(monitor.history, "p1", 10000, days=config.STEAL_MIN_HISTORY_DAYS + 3)
     tracked = [Listing(pid="p1", url="u", title="Timex Watch", price=9800, brand="timex")]
     assert monitor._screen_steals(tracked, ts_for(0)) == []
 
@@ -94,7 +94,7 @@ def test_a_brand_new_product_never_steals(monitor):
 def test_todays_price_cannot_become_its_own_baseline(monitor):
     """Record today first, then screen: the drop must still register, because
     stats exclude today."""
-    seed(monitor.history, "p1", 10000, days=8)
+    seed(monitor.history, "p1", 10000, days=config.STEAL_MIN_HISTORY_DAYS + 3)
     now = ts_for(0)
     monitor.history.record(
         [Listing(pid="p1", url="u", title="Timex Watch", price=4500, brand="timex")], now
@@ -107,7 +107,7 @@ def test_confirmation_uses_the_product_page_price(monitor):
     """If the card said ₹7,000 but the page says ₹9,900, no alert."""
     from watchmon.runner import _confirm_steal
 
-    seed(monitor.history, "p1", 10000, days=8)
+    seed(monitor.history, "p1", 10000, days=config.STEAL_MIN_HISTORY_DAYS + 3)
     _, stats, reason = monitor._screen_steals(
         [Listing(pid="p1", url="u", title="Timex Watch", price=4500, brand="timex")], ts_for(0)
     )[0]
@@ -117,7 +117,7 @@ def test_confirmation_uses_the_product_page_price(monitor):
 def test_muted_series_never_steals(monitor, monkeypatch):
     from watchmon.runner import _confirm_steal
 
-    seed(monitor.history, "p1", 10000, days=8)
+    seed(monitor.history, "p1", 10000, days=config.STEAL_MIN_HISTORY_DAYS + 3)
     _, stats, reason = monitor._screen_steals(
         [Listing(pid="p1", url="u", title="Timex Watch", price=4500, brand="timex")], ts_for(0)
     )[0]

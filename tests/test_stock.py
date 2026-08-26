@@ -35,7 +35,7 @@ def listing():
 
 
 def stats():
-    return PriceStats(days=9, median=10000, min_ever=4600)
+    return PriceStats(days=config.STEAL_MIN_HISTORY_DAYS + 5, median=10000, min_ever=4600)
 
 
 def test_in_stock_listing_passes():
