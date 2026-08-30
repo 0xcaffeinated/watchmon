@@ -2,11 +2,11 @@
   "alerted": {
     "under_threshold:itmd4b10da0e7097": 7200
   },
-  "last_attempt_ts": 1788058241.7084265,
-  "updated": "2026-08-30T02:55:50+00:00",
+  "last_attempt_ts": 1788079666.7095776,
+  "updated": "2026-08-30T08:54:12+00:00",
   "failures": 0,
   "last_failure": null,
   "backoff_until_ts": 0,
-  "last_success_ts": 1788058241.7084265,
-  "last_history_ts": 1788058241.7084265
+  "last_success_ts": 1788079666.7095776,
+  "last_history_ts": 1788079666.7095776
 }
