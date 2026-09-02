@@ -18,11 +18,11 @@
     "steal:itmf48e4515a26f3": 5950,
     "steal:itm5e9bbb8c31700": 5950
   },
-  "last_attempt_ts": 1788377717.4503894,
-  "updated": "2026-09-02T19:41:03+00:00",
-  "failures": 0,
-  "last_failure": null,
-  "backoff_until_ts": 0,
+  "last_attempt_ts": 1788387225.42314,
+  "updated": "2026-09-02T22:15:05+00:00",
+  "failures": 1,
+  "last_failure": "network unreachable",
+  "backoff_until_ts": 1788387825.42314,
   "last_success_ts": 1788377717.4503894,
   "last_history_ts": 1788377717.4503894
 }
