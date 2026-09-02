@@ -3,10 +3,10 @@
     "under_threshold:itmd4b10da0e7097": 7200,
     "steal:itmb70f9c5118721": 4550,
     "steal:itme67320a8b7e15": 4550,
-    "steal:itm74d5c0af007b8": 5250,
     "steal:itmfea1b88d91012": 5250,
     "steal:itm62333ccfc69a1": 5250,
     "steal:itmcd95a60c75d4e": 5250,
+    "steal:itm74d5c0af007b8": 5250,
     "steal:itmf4c3b5701a163": 5250,
     "steal:itm13954a814f6ff": 5250,
     "steal:itmc5fedc4388b6b": 5250,
@@ -18,11 +18,11 @@
     "steal:itmf48e4515a26f3": 5950,
     "steal:itm5e9bbb8c31700": 5950
   },
-  "last_attempt_ts": 1788367496.651989,
-  "updated": "2026-09-02T16:50:58+00:00",
+  "last_attempt_ts": 1788377717.4503894,
+  "updated": "2026-09-02T19:41:03+00:00",
   "failures": 0,
   "last_failure": null,
   "backoff_until_ts": 0,
-  "last_success_ts": 1788367496.651989,
-  "last_history_ts": 1788367496.651989
+  "last_success_ts": 1788377717.4503894,
+  "last_history_ts": 1788377717.4503894
 }
