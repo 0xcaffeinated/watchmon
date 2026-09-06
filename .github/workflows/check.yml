@@ -52,6 +52,7 @@ jobs:
       - name: Check
         env:
           WATCH_SITE_BASE: ${{ secrets.WATCH_SITE_BASE }}
+          WATCH_SITE_B_BASE: ${{ secrets.WATCH_SITE_B_BASE }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python monitor.py --force -v
 
