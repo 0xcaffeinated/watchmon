@@ -28,6 +28,12 @@ against one storefront or several.
 |---|---|---|
 | `WATCH_SITE_BASE` | env / `site.txt` | primary origin, e.g. `https://shop.example.com` |
 | `WATCH_SITE_B_BASE` | env / `site_b.txt` | second origin; omit to disable |
+
+The second storefront is **geo-fenced**: from outside its home country its edge
+returns a 483-byte "Site Maintenance" page with HTTP 200 and no cookies, for
+every request shape — minimal headers, full browser headers, warmed session,
+and its own JSON gateway alike. Nothing about the request changes that, so it
+is left unset in CI and configured only where the runner is in-region.
 | `NTFY_TOPIC` | env / `ntfy_topic.txt` | the topic name is the only access control — keep it unguessable |
 
 Everything else lives in `watchmon/config.py`: brands, price ceiling, steal
