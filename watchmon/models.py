@@ -31,16 +31,22 @@ class Rule:
 
     name: str
     brands: tuple[str, ...]
-    match_query: str = "{brand}"
-    history_query: str = "{brand}"
+    # Query template per source key, for the narrow (ceiling) sweep and the
+    # wide (history) sweep. A source absent from a map is simply not swept for
+    # this rule — categories and storefronts vary independently.
+    sources: dict[str, str] = field(default_factory=dict)
+    history_sources: dict[str, str] = field(default_factory=dict)
     include: str | None = None
     ceiling: int | None = None
     require_spec: dict[str, str] = field(default_factory=dict)
     reject_spec: dict[str, str] = field(default_factory=dict)
     mute: tuple[str, ...] = ()
 
-    def queries(self, wide: bool = False) -> list[str]:
-        template = self.history_query if wide else self.match_query
+    def queries_for(self, source_key: str, wide: bool = False) -> list[str]:
+        table = self.history_sources if wide else self.sources
+        template = table.get(source_key)
+        if not template:
+            return []
         return [template.format(brand=b) for b in self.brands]
 
 
@@ -86,7 +92,7 @@ class Deal:
     kind: str  # "under_threshold" | "steal"
     rule: str = ""
     reason: str = ""
-    movement: str = ""
+    spec: str = ""  # the confirmed specification, whatever the rule required
     in_stock: bool = True
     stock_note: str = ""
     stats: PriceStats = field(default_factory=PriceStats)
@@ -101,7 +107,7 @@ class Deal:
             "price": self.price,
             "kind": self.kind,
             "reason": self.reason,
-            "movement": self.movement,
+            "spec": self.spec,
             "in_stock": self.in_stock,
             "stock_note": self.stock_note,
             "history_days": self.stats.days,

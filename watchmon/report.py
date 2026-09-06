@@ -116,7 +116,7 @@ def gather(hours: int = 24) -> Report:
 def format_report(report: Report) -> tuple[str, str]:
     """(title, body) for notification and stdout."""
     mark = "✅" if report.healthy else "⚠️"
-    title = f"{mark} Watch monitor — {report.completed} checks/24h"
+    title = f"{mark} Price monitor — {report.completed} checks/24h"
 
     lines = []
     if report.last_success:

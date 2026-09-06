@@ -1,6 +1,6 @@
 # watchmon
 
-Watches a set of brands on an online storefront and alerts on two independent
+Tracks prices across **one or more storefronts** and alerts on two independent
 rules:
 
 1. **Automatic under a price ceiling** — any automatic-movement watch below it.
@@ -9,14 +9,25 @@ rules:
 
 Alerts go to a phone via [ntfy](https://ntfy.sh) and, on macOS, a native banner.
 
-The storefront is **not hardcoded**. It comes from `WATCH_SITE_BASE` (or a
-gitignored `site.txt` locally), so this repository names no retailer.
+Storefronts are **not hardcoded**. Each origin comes from an environment
+variable (or a gitignored file locally), so this repository names no retailer.
+
+Two kinds are supported, and a storefront tends to allow exactly one of them:
+
+| Kind | How it reads | Used when |
+|---|---|---|
+| `browser` | headless Chromium, JSON-LD for price | plain HTTP is refused |
+| `json` | one plain request, catalogue JSON embedded in the page | headless browsers are refused |
+
+A source with no origin configured is simply skipped, so the tool runs happily
+against one storefront or several.
 
 ## Configure
 
 | Setting | Where | Notes |
 |---|---|---|
-| `WATCH_SITE_BASE` | env / `site.txt` | origin only, e.g. `https://shop.example.com` |
+| `WATCH_SITE_BASE` | env / `site.txt` | primary origin, e.g. `https://shop.example.com` |
+| `WATCH_SITE_B_BASE` | env / `site_b.txt` | second origin; omit to disable |
 | `NTFY_TOPIC` | env / `ntfy_topic.txt` | the topic name is the only access control — keep it unguessable |
 
 Everything else lives in `watchmon/config.py`: brands, price ceiling, steal
@@ -30,7 +41,7 @@ python monitor.py --status        # run state + history summary + live rules
 python monitor.py --history <pid> # price series for one product
 python monitor.py --dry-run       # scrape + print JSON, no alerts, no state
 python monitor.py --report        # 24h health report
-uv run --with pytest python -m pytest tests/ -q   # 168 tests, no network
+uv run --with pytest python -m pytest tests/ -q   # 195 tests, no network
 ```
 
 Locally on macOS, `./install.sh` schedules it with launchd. In CI,
@@ -46,12 +57,14 @@ watchmon/
   parsing.py       pure text/HTML rules — no I/O, no clock
   history.py       SQLite daily price series
   steals.py        the steal rule (pure)
-  scraper.py       the only module that drives a browser
+  sources.py       storefronts: how to reach one, and how its URLs are stored
+  scraper.py       browser source
+  jsonstore.py     JSON-catalogue source (no browser)
   notify.py        notification channels behind one Notifier
   runstate.py      throttle, backoff, network probe, lock
   report.py        daily health report
   runner.py        Monitor — orchestrates one check
-tests/             168 tests, no network required
+tests/             195 tests, no network required
 ```
 
 ## The two rules
@@ -98,7 +111,10 @@ Every one of these was a silent failure first:
 - **History excludes today**, so a price recorded this run cannot become its own
   all-time low or drag its own median down.
 - **Stored URLs are paths, not origins** — the database is committed so history
-  survives CI runs, and full URLs would publish the storefront.
+  survives CI runs, and full URLs would publish the storefront. Each source
+  strips its own origin and tags the path with its key; the database layer
+  knows nothing about domains. Adding a second storefront while that logic
+  still lived in the database would have published the new domain in every row.
 
 ## Notification behaviour
 

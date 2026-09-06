@@ -36,9 +36,10 @@ RULES = (
     Rule(
         name="automatic watches",
         brands=BRANDS,
-        # Narrow sweep drives the ceiling rule; the wide sweep feeds history.
-        match_query="{brand}+automatic",
-        history_query="{brand}+watch",
+        # A query per storefront. The second one returns a brand's whole
+        # catalogue in one sweep, so the same query serves both passes.
+        sources={"a": "{brand}+automatic", "b": "watches?rawQuery={brand}"},
+        history_sources={"a": "{brand}+watch", "b": "watches?rawQuery={brand}"},
         # Must include "mechanical": one brand lists its automatics that way
         # and never as "Automatic", which made the whole brand invisible.
         include=r"automatic|mechanical|self[\s-]?wind",

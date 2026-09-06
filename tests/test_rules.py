@@ -23,8 +23,8 @@ from watchmon.models import Rule  # noqa: E402
 KEYBOARDS = Rule(
     name="brown-switch keyboards",
     brands=("keychron", "logitech"),
-    match_query="{brand}+mechanical+keyboard",
-    history_query="{brand}+keyboard",
+    sources={"a": "{brand}+mechanical+keyboard", "b": "keyboards?rawQuery={brand}"},
+    history_sources={"a": "{brand}+keyboard"},
     include=r"mechanical",
     ceiling=6000,
     require_spec={r"switch type": r"brown"},
@@ -40,12 +40,23 @@ Layout
 75%"""
 
 
-def test_queries_are_generated_per_brand():
-    assert KEYBOARDS.queries() == [
+def test_queries_are_generated_per_brand_and_source():
+    assert KEYBOARDS.queries_for("a") == [
         "keychron+mechanical+keyboard",
         "logitech+mechanical+keyboard",
     ]
-    assert KEYBOARDS.queries(wide=True) == ["keychron+keyboard", "logitech+keyboard"]
+    assert KEYBOARDS.queries_for("b") == [
+        "keyboards?rawQuery=keychron",
+        "keyboards?rawQuery=logitech",
+    ]
+    assert KEYBOARDS.queries_for("a", wide=True) == ["keychron+keyboard", "logitech+keyboard"]
+
+
+def test_a_source_the_rule_says_nothing_about_is_not_swept():
+    """Categories and storefronts vary independently: this rule has no wide
+    sweep on source b, so b must contribute nothing to history for it."""
+    assert KEYBOARDS.queries_for("b", wide=True) == []
+    assert KEYBOARDS.queries_for("zz") == []
 
 
 def test_a_matching_card_is_accepted():

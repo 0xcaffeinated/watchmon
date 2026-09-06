@@ -15,7 +15,7 @@ import statistics
 from contextlib import closing
 from pathlib import Path
 
-from . import config
+from . import config, sources
 from .models import Listing, PriceStats, day_of
 
 SCHEMA = """
@@ -57,17 +57,12 @@ class PriceHistory:
 
     @staticmethod
     def _relative(url: str) -> str:
-        """Store the path only, never the origin.
+        """Store the path only, never the origin — see watchmon.sources.
 
-        This database is committed to a public repo so history survives between
-        runs, and a full URL would publish the storefront's domain in every
-        row. The origin is configuration (config.SITE_BASE) and is added back
-        when a link is needed.
+        This database is committed to a public repository, so a full URL would
+        publish a storefront's domain in every row.
         """
-        base = config.SITE_BASE
-        if base and (url or "").startswith(base):
-            return url[len(base):] or "/"
-        return url or ""
+        return sources.store_url(url)
 
     def record(self, listings: list[Listing], now: float) -> int:
         """Store today's cheapest price for each priced listing.
@@ -167,8 +162,7 @@ class PriceHistory:
             return None
         keys = ("pid", "brand", "title", "url", "first_seen", "last_seen")
         record = dict(zip(keys, row))
-        if record["url"].startswith("/"):
-            record["url"] = config.SITE_BASE + record["url"]
+        record["url"] = sources.restore_url(record["url"])
         return record
 
     def summary(self) -> dict:

@@ -15,7 +15,9 @@ import json
 import logging
 import time
 
-from . import config, parsing, steals
+from contextlib import ExitStack
+
+from . import config, parsing, sources, steals
 from .history import PriceHistory
 from .models import Deal, Listing, PriceStats, Rule, now_iso
 from .notify import Notifier
@@ -36,9 +38,17 @@ from .runstate import (
     single_instance,
     wait_for_network,
 )
-from .scraper import StoreScraper, ProductPage
+from .scraper import ProductPage
 
 log = logging.getLogger("watchmon.runner")
+
+
+def _source_key_for(listing: Listing) -> str:
+    """Which storefront a listing came from, inferred from its URL."""
+    for source in sources.SOURCES:
+        if source.owns(listing.url):
+            return source.key
+    return sources.LEGACY_KEY
 
 
 def decide_alerts(deals: list[Deal], state: dict) -> tuple[list[Deal], dict]:
@@ -118,7 +128,7 @@ def _confirm_ceiling(page: ProductPage, listing: Listing, rule: Rule, threshold:
         kind="under_threshold",
         rule=rule.name,
         reason=f"below ₹{threshold:,}",
-        movement=page.movement or "(not listed)",
+        spec=page.movement or "(not listed)",
         in_stock=page.in_stock,
         stock_note=page.stock_note,
     )
@@ -155,7 +165,7 @@ def _confirm_steal(page: ProductPage, stats: PriceStats, card_reason: str) -> De
         price=page.price,
         kind="steal",
         reason=reason,
-        movement=page.movement or "(not listed)",
+        spec=page.movement or "(not listed)",
         in_stock=page.in_stock,
         stock_note=page.stock_note,
         stats=stats,
@@ -180,52 +190,52 @@ class Monitor:
     # ------------------------------------------------------------ phases ---
 
     def _sweep_all(
-        self, scraper: StoreScraper, wide: bool
-    ) -> tuple[list[tuple[Listing, Rule]], list[Listing]]:
-        """Sweeps sharing one browser. Returns (ceiling candidates, tracked).
+        self, open_sources: dict, wide: bool
+    ) -> tuple[list[tuple[Listing, Rule, str]], list[Listing]]:
+        """Sweep every (rule, source) pair. Returns (candidates, tracked).
 
-        Iterates rules, so adding a product category adds sweeps here without
-        changing any logic. `wide` adds the everything-of-the-brand pass that
-        feeds history; it is skipped on most ticks.
+        Rules and storefronts vary independently: a rule declares a query for
+        each source it applies to, and a source it says nothing about is not
+        swept for it.
         """
-        candidates: list[tuple[Listing, Rule]] = []
-        all_watched: dict[str, Listing] = {}
+        candidates: list[tuple[Listing, Rule, str]] = []
+        tracked: dict[str, Listing] = {}
 
         for rule in config.RULES:
             ceiling = rule.ceiling if rule.ceiling is not None else self.threshold
-            for query in rule.queries():
-                listings = scraper.sweep(
-                    query, config.MAX_PAGES_AUTOMATIC, label=f"{query}"
-                )
-                found = 0
-                for item in listings:
-                    if not parsing.matches_rule(item.title, item.url, rule):
-                        continue
-                    item.brand = parsing.brand_of(item.title, item.url)
-                    item.rule = rule.name
-                    all_watched.setdefault(item.pid, item)
-                    if item.price is None or item.price <= ceiling * config.VERIFY_MARGIN:
-                        candidates.append((item, rule))
-                        found += 1
-                log.info("%s: %d listings, %d candidate(s)", query, len(listings), found)
+            for key, scraper in open_sources.items():
+                source = sources.by_key(key)
+                for query in rule.queries_for(key):
+                    listings = scraper.sweep(query, source.max_pages, label=f"{key}/{query}")
+                    found = 0
+                    for item in listings:
+                        if not parsing.matches_rule(item.title, item.url, rule):
+                            continue
+                        item.brand = item.brand or parsing.brand_of(item.title, item.url)
+                        item.rule = rule.name
+                        tracked.setdefault(item.pid, item)
+                        if item.price is None or item.price <= ceiling * config.VERIFY_MARGIN:
+                            candidates.append((item, rule, key))
+                            found += 1
+                    log.info("%s/%s: %d listings, %d candidate(s)", key, query, len(listings), found)
 
         if wide:
             for rule in config.RULES:
-                for query in rule.queries(wide=True):
-                    listings = scraper.sweep(
-                        query, config.MAX_PAGES_HISTORY, label=f"{query}"
-                    )
-                    kept = parsing.watched_listings(listings)
-                    for item in kept:
-                        all_watched.setdefault(item.pid, item)
-                    log.info("%s: %d listings, %d watched", query, len(listings), len(kept))
+                for key, scraper in open_sources.items():
+                    source = sources.by_key(key)
+                    pages = config.MAX_PAGES_HISTORY if key == "a" else source.max_pages
+                    for query in rule.queries_for(key, wide=True):
+                        listings = scraper.sweep(query, pages, label=f"{key}/{query}")
+                        kept = parsing.watched_listings(listings)
+                        for item in kept:
+                            tracked.setdefault(item.pid, item)
+                        log.info("%s/%s: %d listings, %d watched", key, query, len(listings), len(kept))
         else:
             log.info(
-                "wide history sweep not due — tracking %d from the rule sweeps",
-                len(all_watched),
+                "wide history sweep not due — tracking %d from the rule sweeps", len(tracked)
             )
 
-        return candidates, list(all_watched.values())
+        return candidates, list(tracked.values())
 
     def _screen_steals(self, tracked: list[Listing], now: float) -> list[tuple[Listing, PriceStats, str]]:
         """Which tracked products look like steals on their card price."""
@@ -246,8 +256,13 @@ class Monitor:
         now = time.time()
         deals: list[Deal] = []
 
-        with StoreScraper(headless=self.headless) as scraper:
-            ceiling_candidates, tracked = self._sweep_all(scraper, wide=wide)
+        with ExitStack() as stack:
+            open_sources = {
+                src.key: stack.enter_context(src.open(headless=self.headless))
+                for src in sources.enabled()
+            }
+            log.info("storefronts: %s", ", ".join(sorted(open_sources)))
+            ceiling_candidates, tracked = self._sweep_all(open_sources, wide=wide)
 
             # Steal screening runs against history *before* today's prices are
             # written, so a product cannot be compared against itself.
@@ -259,9 +274,9 @@ class Monitor:
                 len(steal_candidates),
             )
 
-            unique = {c.pid: (c, r) for c, r in ceiling_candidates}
+            unique = {c.pid: (c, r, k) for c, r, k in ceiling_candidates}
             ordered = sorted(
-                unique.values(), key=lambda cr: cr[0].price if cr[0].price is not None else 0
+                unique.values(), key=lambda t: t[0].price if t[0].price is not None else 0
             )
             if len(ordered) > config.MAX_VERIFY_PER_RUN:
                 log.warning(
@@ -273,8 +288,8 @@ class Monitor:
                 )
                 ordered = ordered[: config.MAX_VERIFY_PER_RUN]
 
-            for listing, rule in ordered:
-                page = scraper.fetch_product(listing)
+            for listing, rule, key in ordered:
+                page = open_sources[key].fetch_product(listing)
                 if page is None:
                     continue
                 ceiling = rule.ceiling if rule.ceiling is not None else self.threshold

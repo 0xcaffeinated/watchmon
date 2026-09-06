@@ -61,7 +61,7 @@ def build_ntfy_payload(topic: str, title: str, message: str, url: str | None = N
         "title": title,
         "message": message,
         "priority": 4,
-        "tags": ["watch"],
+        "tags": ["moneybag"],
     }
     if url:
         payload["click"] = url
@@ -135,8 +135,11 @@ def format_deal(deal: Deal, threshold: int) -> tuple[str, str]:
         title = f"🔥 STEAL — {brand} ₹{deal.price:,}{flag}"
         message = f"{deal.title[:70]} — {deal.reason}"
     else:
-        title = f"⌚ {brand} automatic ₹{deal.price:,}{flag}"
-        message = f"{deal.title[:70]} — below ₹{threshold:,}. Tap to open the listing."
+        # Named after the rule that matched, so a second category does not
+        # arrive announcing itself as a watch.
+        what = deal.rule or "match"
+        title = f"🎯 {brand} ₹{deal.price:,}{flag}"
+        message = f"{deal.title[:70]} — {what}, below ₹{threshold:,}. Tap to open."
     return title, message
 
 
