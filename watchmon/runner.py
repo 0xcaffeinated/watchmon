@@ -299,9 +299,17 @@ class Monitor:
                 time.sleep(0.8)
 
             already = {d.pid for d in deals}
+            source_of = {c.pid: k for c, _r, k in ceiling_candidates}
             for listing, stats, _reason in steal_candidates:
                 if listing.pid in already:
-                    continue  # already alerting on the ₹8,000 rule
+                    continue  # already alerting on the ceiling rule
+                # A steal can come from a product no ceiling rule swept, so the
+                # storefront is inferred from its URL when it is not known.
+                key = source_of.get(listing.pid) or _source_key_for(listing)
+                scraper = open_sources.get(key)
+                if scraper is None:
+                    log.warning("steal %s: no open source for %r", listing.pid, key)
+                    continue
                 page = scraper.fetch_product(listing)
                 if page is None:
                     continue
