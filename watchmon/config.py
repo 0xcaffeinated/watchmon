@@ -119,6 +119,26 @@ def _resolve_site_base() -> str:
 SEARCH_PATH = "/search?q={query}&sort=price_asc&page={page}"
 
 SITE_BASE = _resolve_site_base()
+
+
+def _resolve_site_b_base() -> str:
+    """Second storefront: the one that embeds its catalogue as JSON."""
+    from_env = os.environ.get("WATCH_SITE_B_BASE", "").strip()
+    if from_env:
+        return from_env.rstrip("/")
+    try:
+        return (ROOT / "site_b.txt").read_text().strip().rstrip("/")
+    except OSError:
+        return ""
+
+
+SITE_B_BASE = _resolve_site_b_base()
+
+# `{query}` is a category path plus a refinement; `{page}` is 1-based.
+JSONSTORE_SEARCH_PATH = "/{query}&p={page}"
+JSONSTORE_TIMEOUT_SEC = 30
+JSONSTORE_PAUSE_SEC = 1.5
+MAX_PAGES_JSONSTORE = 4
 # The ₹8,000 rule only cares about automatics, so its sweep stays narrow.
 AUTOMATIC_QUERY = "{brand}+automatic"
 # History wants every watch of the brand, so its sweep is wide.

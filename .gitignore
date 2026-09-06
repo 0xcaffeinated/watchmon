@@ -6,6 +6,7 @@ logs/
 # Local secrets — the storefront origin and the push topic.
 /site.txt
 /ntfy_topic.txt
+/site_b.txt
 
 # Local run artefacts. Anchored to the root on purpose: the CI workflow
 # persists its own copies under state/, and an unanchored pattern would
