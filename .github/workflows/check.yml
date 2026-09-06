@@ -49,27 +49,6 @@ jobs:
           [ -f state/state.json ]  && cp state/state.json  state.json  || true
           [ -f state/history.db ]  && cp state/history.db  history.db  || true
 
-      - name: Diagnose config
-        env:
-          WATCH_SITE_BASE: ${{ secrets.WATCH_SITE_BASE }}
-          WATCH_SITE_B_BASE: ${{ secrets.WATCH_SITE_B_BASE }}
-        run: |
-          python - <<'PY'
-          import socket, sys
-          sys.path.insert(0, ".")
-          from watchmon import config, sources
-          print("site base set  :", bool(config.SITE_BASE))
-          print("probe host repr:", repr(config.NET_PROBE_HOST))
-          print("probe port     :", config.NET_PROBE_PORT)
-          print("sources enabled:", [s.key for s in sources.enabled()])
-          for host in (config.NET_PROBE_HOST, "www.google.com"):
-              try:
-                  ip = socket.gethostbyname(host) if host else "(empty host)"
-              except Exception as e:
-                  ip = f"DNS FAIL {e}"
-              print(f"  {host!r:24} -> {ip}")
-          PY
-
       - name: Check
         env:
           WATCH_SITE_BASE: ${{ secrets.WATCH_SITE_BASE }}
