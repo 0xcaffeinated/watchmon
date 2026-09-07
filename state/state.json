@@ -1,10 +1,22 @@
 {
-  "alerted": {},
-  "last_attempt_ts": 1788759123.506748,
-  "updated": "2026-09-07T05:33:23+00:00",
-  "failures": 2,
-  "last_failure": "network unreachable",
-  "backoff_until_ts": 1788760323.506748,
-  "last_success_ts": 1788734197.4274561,
-  "last_history_ts": 1788727235.2493837
+  "alerted": {
+    "steal:itm62333ccfc69a1": 5250,
+    "steal:itmcd95a60c75d4e": 5250,
+    "steal:itmf4c3b5701a163": 5250,
+    "steal:itmc5fedc4388b6b": 5250,
+    "steal:itmc614d660f11e8": 5250,
+    "steal:itm3b371197c204d": 5600,
+    "steal:itm1445529ab5e20": 5600,
+    "steal:itmb378753880422": 5600,
+    "steal:itmf48e4515a26f3": 5950,
+    "steal:itm871ee0fdce475": 5950,
+    "steal:itma94bc9c856e20": 6300
+  },
+  "last_attempt_ts": 1788779590.418804,
+  "updated": "2026-09-07T11:18:19+00:00",
+  "failures": 0,
+  "last_failure": null,
+  "backoff_until_ts": 0,
+  "last_success_ts": 1788779590.418804,
+  "last_history_ts": 1788779590.418804
 }
