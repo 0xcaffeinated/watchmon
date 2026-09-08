@@ -2,9 +2,9 @@
   "alerted": {
     "steal:itm62333ccfc69a1": 5250,
     "steal:itmcd95a60c75d4e": 5250,
-    "steal:itmc614d660f11e8": 5250,
-    "steal:itmc5fedc4388b6b": 5250,
     "steal:itmf4c3b5701a163": 5250,
+    "steal:itmc5fedc4388b6b": 5250,
+    "steal:itmc614d660f11e8": 5250,
     "steal:itm3b371197c204d": 5600,
     "steal:itm1445529ab5e20": 5600,
     "steal:itmb378753880422": 5600,
@@ -12,11 +12,11 @@
     "steal:itmf48e4515a26f3": 5950,
     "steal:itma94bc9c856e20": 6300
   },
-  "last_attempt_ts": 1788821749.2768672,
-  "updated": "2026-09-07T22:57:09+00:00",
-  "failures": 1,
-  "last_failure": "network unreachable",
-  "backoff_until_ts": 1788822349.2768672,
-  "last_success_ts": 1788812360.2148564,
-  "last_history_ts": 1788812360.2148564
+  "last_attempt_ts": 1788828724.3658953,
+  "updated": "2026-09-08T00:59:05+00:00",
+  "failures": 0,
+  "last_failure": null,
+  "backoff_until_ts": 0,
+  "last_success_ts": 1788828724.3658953,
+  "last_history_ts": 1788828724.3658953
 }
