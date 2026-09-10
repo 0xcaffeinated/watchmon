@@ -55,9 +55,6 @@ jobs:
           [ -f state/state.json ] && cp state/state.json state.json || true
           if gh release download history-store --pattern history.db --output history.db --clobber; then
             echo "restored history.db from the release store"
-          elif [ -f state/history.db ]; then
-            echo "release store empty — falling back to the copy still in git"
-            cp state/history.db history.db
           else
             echo "no history yet; starting fresh"
           fi

@@ -16,3 +16,6 @@ logs/
 /history.db
 /history.db-wal
 /history.db-shm
+
+# The price database lives in a release asset, never in git.
+state/history.db
