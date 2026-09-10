@@ -70,6 +70,9 @@ jobs:
           WATCH_SITE_BASE: ${{ secrets.WATCH_SITE_BASE }}
           WATCH_SITE_B_BASE: ${{ secrets.WATCH_SITE_B_BASE }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          AFFILIATE_CONFIG: ${{ secrets.AFFILIATE_CONFIG }}
         run: python monitor.py --force -v
 
       - name: Persist state
