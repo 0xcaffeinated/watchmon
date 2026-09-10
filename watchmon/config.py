@@ -59,9 +59,36 @@ RULES = (
 # shallow (max_pages) because history wants the same products daily, not broad
 # coverage of a category nobody is alerted about.
 
+# Breadth beats depth. A query exhausts after a handful of pages (keyboard
+# returned 40 items, laptop 86), so coverage grows by adding queries, not
+# pages. Prices are bucketed by day, so each product only needs to be seen
+# once a day — which is what makes rotation work: a slice per run, the whole
+# catalogue across a day.
 HISTORY_CATEGORIES = (
-    "headphones", "smartwatch", "laptop", "mobile", "shoes",
-    "backpack", "keyboard", "monitor", "power+bank", "trimmer",
+    # electronics
+    "headphones", "earbuds", "bluetooth+speaker", "soundbar", "smartwatch",
+    "fitness+band", "laptop", "gaming+laptop", "tablet", "mobile",
+    "smartphone", "monitor", "keyboard", "mechanical+keyboard", "mouse",
+    "webcam", "printer", "router", "power+bank", "usb+hub",
+    "external+hard+disk", "ssd", "pendrive", "memory+card", "graphics+card",
+    "processor", "ram", "motherboard", "gaming+console", "controller",
+    # home and kitchen
+    "mixer+grinder", "air+fryer", "microwave+oven", "induction+cooktop",
+    "electric+kettle", "coffee+maker", "water+purifier", "vacuum+cleaner",
+    "air+purifier", "ceiling+fan", "table+fan", "iron+box", "geyser",
+    "refrigerator", "washing+machine", "air+conditioner", "television",
+    "cookware+set", "pressure+cooker", "dinner+set",
+    # personal care
+    "trimmer", "shaver", "hair+dryer", "hair+straightener", "epilator",
+    "electric+toothbrush", "massager", "weighing+scale",
+    # fashion and bags
+    "running+shoes", "sneakers", "formal+shoes", "sandals", "flip+flops",
+    "backpack", "laptop+bag", "trolley+bag", "wallet", "belt",
+    "sunglasses", "handbag",
+    # sport, outdoors, misc
+    "dumbbells", "yoga+mat", "cycle", "helmet", "tent",
+    "cricket+bat", "football", "badminton+racket", "skipping+rope",
+    "office+chair", "study+table", "mattress", "bedsheet", "curtains",
 )
 
 RULES += tuple(
@@ -74,6 +101,11 @@ RULES += tuple(
     )
     for category in HISTORY_CATEGORIES
 )
+
+# How many history-only rules one wide sweep takes on. The rest wait their
+# turn: the run has to finish inside the CI job timeout, and hammering the
+# storefront is what gets us throttled. Rotation position lives in state.
+HISTORY_RULES_PER_RUN = 14
 
 # Model families to never alert on, matched case-insensitively against title,
 # page heading and URL.

@@ -43,6 +43,25 @@ from .scraper import ProductPage
 log = logging.getLogger("watchmon.runner")
 
 
+def rotate_history_rules(rules: list[Rule], offset: int, per_run: int) -> tuple[list[Rule], int]:
+    """The slice of history-only rules this run should sweep, and the next offset.
+
+    Prices are bucketed by calendar day, so a product needs to be seen once a
+    day, not every run. Rotating a slice per run therefore buys breadth for
+    free: the whole catalogue is covered across a day without any single run
+    exceeding the job timeout or hammering the storefront.
+    """
+    if not rules:
+        return [], 0
+    if per_run >= len(rules):
+        return list(rules), 0
+    offset %= len(rules)
+    window = rules[offset : offset + per_run]
+    if len(window) < per_run:  # wrap around the end
+        window += rules[: per_run - len(window)]
+    return window, (offset + per_run) % len(rules)
+
+
 def _source_key_for(listing: Listing) -> str:
     """Which storefront a listing came from, inferred from its URL."""
     for source in sources.SOURCES:
@@ -186,6 +205,9 @@ class Monitor:
         self.headless = headless
         self.history = history if history is not None else PriceHistory(config.HISTORY_DB)
         self.notifier = notifier if notifier is not None else Notifier()
+        # Where the history rotation resumes; carried in state between runs.
+        self.history_offset = 0
+        self.next_history_offset = 0
 
     # ------------------------------------------------------------ phases ---
 
@@ -223,7 +245,7 @@ class Monitor:
                     log.info("%s/%s: %d listings, %d candidate(s)", key, query, len(listings), found)
 
         if wide:
-            for rule in config.RULES:
+            for rule in self._wide_rules():
                 for key, scraper in open_sources.items():
                     source = sources.by_key(key)
                     pages = rule.max_pages or (
@@ -242,6 +264,20 @@ class Monitor:
             )
 
         return candidates, list(tracked.values())
+
+    def _wide_rules(self) -> list[Rule]:
+        """Alerting rules every wide run, plus this run's history slice."""
+        alerting = [r for r in config.RULES if r.alerts]
+        history = [r for r in config.RULES if not r.alerts]
+        window, self.next_history_offset = rotate_history_rules(
+            history, self.history_offset, config.HISTORY_RULES_PER_RUN
+        )
+        if history:
+            log.info(
+                "history rotation: %d of %d categories this run (offset %d -> %d)",
+                len(window), len(history), self.history_offset, self.next_history_offset,
+            )
+        return alerting + window
 
     def _screen_steals(self, tracked: list[Listing], now: float) -> list[tuple[Listing, PriceStats, str]]:
         """Which tracked products look like steals on their card price.
@@ -388,6 +424,7 @@ class Monitor:
             return 0
 
         wide = (now - (state.get("last_history_ts") or 0)) >= config.HISTORY_INTERVAL_SEC
+        self.history_offset = int(state.get("history_offset") or 0)
         log.info(
             "checking %s under ₹%s + steals (network %s, history sweep: %s)",
             "/".join(b.title() for b in config.BRANDS),
@@ -419,6 +456,7 @@ class Monitor:
         state = record_success(state, now)
         if wide:
             state["last_history_ts"] = now
+            state["history_offset"] = self.next_history_offset
         to_alert, state = decide_alerts(deals, state)
         if to_alert:
             record_deals(to_alert)

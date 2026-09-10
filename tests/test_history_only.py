@@ -174,3 +174,63 @@ def test_the_wide_filter_ignores_the_narrow_include(monkeypatch):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# -------------------------------------------------------------- rotation ----
+
+
+def R(n):
+    return Rule(name=f"history: c{n}", brands=(), history_sources={"a": f"c{n}"}, alerts=False)
+
+
+def test_rotation_walks_the_catalogue_and_wraps():
+    from watchmon.runner import rotate_history_rules
+
+    rules = [R(i) for i in range(10)]
+    seen, offset = [], 0
+    for _ in range(3):
+        window, offset = rotate_history_rules(rules, offset, 4)
+        seen.append([r.name.rsplit("c", 1)[1] for r in window])
+    assert seen[0] == ["0", "1", "2", "3"]
+    assert seen[1] == ["4", "5", "6", "7"]
+    assert seen[2] == ["8", "9", "0", "1"]   # wraps past the end
+    assert offset == 2
+
+
+def test_every_category_is_covered_within_one_cycle():
+    """The point of rotation: breadth over a day, not depth in one run."""
+    from watchmon.runner import rotate_history_rules
+
+    rules = [R(i) for i in range(84)]
+    covered, offset = set(), 0
+    for _ in range(6):                       # 84 / 14 = 6 wide runs
+        window, offset = rotate_history_rules(rules, offset, 14)
+        covered.update(r.name for r in window)
+    assert len(covered) == 84
+
+
+def test_rotation_handles_a_slice_larger_than_the_catalogue():
+    from watchmon.runner import rotate_history_rules
+
+    rules = [R(i) for i in range(3)]
+    window, offset = rotate_history_rules(rules, 0, 14)
+    assert len(window) == 3 and offset == 0
+
+
+def test_rotation_with_no_history_rules_is_harmless():
+    from watchmon.runner import rotate_history_rules
+
+    assert rotate_history_rules([], 5, 14) == ([], 0)
+
+
+def test_alerting_rules_are_swept_every_wide_run(wired, monkeypatch):
+    """Rotation must never delay the rules that actually notify."""
+    monitor, _ = wired
+    many = [HISTORY_ONLY] + [R(i) for i in range(40)]
+    monkeypatch.setattr(config, "RULES", (ALERTING, *many))
+    monkeypatch.setattr(config, "HISTORY_RULES_PER_RUN", 3)
+    for offset in range(0, 12, 3):
+        monitor.history_offset = offset
+        names = [r.name for r in monitor._wide_rules()]
+        assert ALERTING.name in names
+        assert len(names) == 1 + 3
