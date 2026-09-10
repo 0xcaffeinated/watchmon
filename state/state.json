@@ -9,14 +9,16 @@
     "steal:itm1445529ab5e20": 5600,
     "steal:itmb378753880422": 5600,
     "steal:itm5b03cb59c2e18": 5600,
-    "steal:itm5e9bbb8c31700": 5950
+    "steal:itm5e9bbb8c31700": 5950,
+    "steal:itmf48e4515a26f3": 5950,
+    "steal:itma94bc9c856e20": 6300
   },
-  "last_attempt_ts": 1789042751.935606,
-  "updated": "2026-09-10T12:28:58+00:00",
+  "last_attempt_ts": 1789054514.8170452,
+  "updated": "2026-09-10T15:44:23+00:00",
   "failures": 0,
   "last_failure": null,
   "backoff_until_ts": 0,
-  "last_success_ts": 1789042751.935606,
-  "last_history_ts": 1789042751.935606,
-  "history_offset": 28
+  "last_success_ts": 1789054514.8170452,
+  "last_history_ts": 1789054514.8170452,
+  "history_offset": 42
 }
