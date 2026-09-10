@@ -8,6 +8,8 @@ rules:
    history.
 
 Alerts go to a phone via [ntfy](https://ntfy.sh) and, on macOS, a native banner.
+Confirmed steals are also published to a Telegram channel with the price
+history behind them and, where configured, an affiliate link plus disclosure.
 
 Storefronts are **not hardcoded**. Each origin comes from an environment
 variable (or a gitignored file locally), so this repository names no retailer.
@@ -28,13 +30,16 @@ against one storefront or several.
 |---|---|---|
 | `WATCH_SITE_BASE` | env / `site.txt` | primary origin, e.g. `https://shop.example.com` |
 | `WATCH_SITE_B_BASE` | env / `site_b.txt` | second origin; omit to disable |
+| `NTFY_TOPIC` | env / `ntfy_topic.txt` | the topic name is the only access control — keep it unguessable |
+| `TELEGRAM_TOKEN` | env / `telegram_token.txt` | bot token for the publishing channel |
+| `TELEGRAM_CHAT_ID` | env / `telegram_chat.txt` | channel to publish to, e.g. `@deals` |
+| `AFFILIATE_CONFIG` | env / `affiliate.json` | `{"publisher_id", "redirector", "retailers"}` — an earnings identity, never committed |
 
 The second storefront is **geo-fenced**: from outside its home country its edge
 returns a 483-byte "Site Maintenance" page with HTTP 200 and no cookies, for
 every request shape — minimal headers, full browser headers, warmed session,
 and its own JSON gateway alike. Nothing about the request changes that, so it
 is left unset in CI and configured only where the runner is in-region.
-| `NTFY_TOPIC` | env / `ntfy_topic.txt` | the topic name is the only access control — keep it unguessable |
 
 Everything else lives in `watchmon/config.py`: brands, price ceiling, steal
 thresholds, muted model families, cadence.
@@ -47,7 +52,7 @@ python monitor.py --status        # run state + history summary + live rules
 python monitor.py --history <pid> # price series for one product
 python monitor.py --dry-run       # scrape + print JSON, no alerts, no state
 python monitor.py --report        # 24h health report
-uv run --with pytest python -m pytest tests/ -q   # 195 tests, no network
+uv run --with pytest python -m pytest tests/ -q   # 233 tests, no network
 ```
 
 Locally on macOS, `./install.sh` schedules it with launchd. In CI,
@@ -69,8 +74,9 @@ watchmon/
   notify.py        notification channels behind one Notifier
   runstate.py      throttle, backoff, network probe, lock
   report.py        daily health report
+  links.py         affiliate link construction
   runner.py        Monitor — orchestrates one check
-tests/             195 tests, no network required
+tests/             233 tests, no network required
 ```
 
 ## The two rules
