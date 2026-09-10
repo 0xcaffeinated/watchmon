@@ -113,3 +113,35 @@ def test_summary_counts_products_and_points(history):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_baseline_uses_all_history_when_uncapped(history):
+    """`at least 30 days` means the baseline grows with the record rather than
+    sliding: a price from 40 days ago still counts."""
+    for offset in range(-40, -20):
+        history.record([L(price=20000)], ts_for(offset))
+    for offset in range(-20, 0):
+        history.record([L(price=10000)], ts_for(offset))
+
+    uncapped = history.stats("p1", ts_for(0), window_days=None)
+    assert uncapped.days == 40
+    assert uncapped.median == 15000          # both halves counted
+
+    windowed = history.stats("p1", ts_for(0), window_days=10)
+    assert windowed.median == 10000          # only the recent half
+
+
+def test_stats_many_honours_an_uncapped_window(history):
+    for offset in range(-35, 0):
+        history.record([L("a", 10000), L("b", 500)], ts_for(offset))
+    bulk = history.stats_many(["a", "b"], ts_for(0), window_days=None)
+    assert bulk["a"].days == 35
+    assert bulk["a"].median == history.stats("a", ts_for(0), None).median
+
+
+def test_mean_is_recorded_alongside_median(history):
+    for offset, price in zip(range(-4, 0), (10000, 10000, 10000, 2000)):
+        history.record([L(price=price)], ts_for(offset))
+    st = history.stats("p1", ts_for(0), None)
+    assert st.median == 10000
+    assert st.mean == 8000        # dragged down by the one cheap day

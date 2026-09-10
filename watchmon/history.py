@@ -97,7 +97,7 @@ class PriceHistory:
 
     # ------------------------------------------------------------- reads ---
 
-    def stats(self, pid: str, now: float, window_days: int) -> PriceStats:
+    def stats(self, pid: str, now: float, window_days: int | None) -> PriceStats:
         """History for one product, **excluding today**.
 
         Today is excluded so a price that has already been recorded this run
@@ -114,7 +114,8 @@ class PriceHistory:
         if not rows:
             return PriceStats()
 
-        window = [price for _, price in rows[:window_days]]
+        # None: the baseline uses every day on record.
+        window = [price for _, price in (rows if window_days is None else rows[:window_days])]
         return PriceStats(
             days=len(rows),
             median=int(statistics.median(window)),
@@ -122,7 +123,7 @@ class PriceHistory:
             min_ever=min(price for _, price in rows),
         )
 
-    def stats_many(self, pids: list[str], now: float, window_days: int) -> dict[str, PriceStats]:
+    def stats_many(self, pids: list[str], now: float, window_days: int | None) -> dict[str, PriceStats]:
         """stats() for many products in one pass — one query, not N."""
         if not pids:
             return {}
@@ -146,10 +147,11 @@ class PriceHistory:
             if not prices:
                 out[pid] = PriceStats()
                 continue
+            window = prices if window_days is None else prices[:window_days]
             out[pid] = PriceStats(
                 days=len(prices),
-                median=int(statistics.median(prices[:window_days])),
-                mean=int(statistics.mean(prices[:window_days])),
+                median=int(statistics.median(window)),
+                mean=int(statistics.mean(window)),
                 min_ever=min(prices),
             )
         return out

@@ -289,7 +289,7 @@ class Monitor:
         tracked = [x for x in tracked if x.rule is None or x.rule in alerting]
         priced = {x.pid: x.price for x in tracked if x.price is not None}
         stats = self.history.stats_many(
-            list(priced), now, config.STEAL_MEDIAN_WINDOW_DAYS
+            list(priced), now, config.STEAL_BASELINE_WINDOW_DAYS
         )
         by_pid = {x.pid: x for x in tracked}
         return [

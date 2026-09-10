@@ -142,8 +142,12 @@ MAX_VERIFY_PER_RUN = 40
 # A steal is a watch cheap *relative to its own past*, not to a the site MRP.
 # Both conditions must hold, and only after enough history exists.
 STEAL_DISCOUNT = 0.40  # >= 40% below its 30-day median
-STEAL_MEDIAN_WINDOW_DAYS = 30
-STEAL_MIN_HISTORY_DAYS = 14  # distinct days before a median means "normal"
+# The baseline spans ALL recorded history, not a rolling window: the rule is
+# "below the average of at least 30 days", so the more history a product has,
+# the more the baseline is worth. None means uncapped.
+STEAL_BASELINE_WINDOW_DAYS = None
+# Distinct days required before a baseline is trusted at all.
+STEAL_MIN_HISTORY_DAYS = 30
 # Which 30-day statistic the discount is measured against.
 #   "median" — robust to a price spike or an MRP-only day
 #   "mean"   — the literal average; on this data it fires about half as often,

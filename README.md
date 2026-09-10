@@ -86,14 +86,18 @@ on the product page before alerting: price from JSON-LD, movement from the
 specifications table (which must say automatic or self-winding, not hand-wound).
 
 **Steal.** Wide sweeps record the day's cheapest price for every tracked
-product. A steal is a price at least `STEAL_DISCOUNT` below its **30-day
-baseline**, once the product has `STEAL_MIN_HISTORY_DAYS` of history and costs
-at least `STEAL_MIN_PRICE`.
+product. A steal is a price at least `STEAL_DISCOUNT` below the average of **at
+least 30 days** of its own history, and costing at least `STEAL_MIN_PRICE`.
+
+The baseline is uncapped: it spans every day on record, so it strengthens as a
+product is tracked for longer rather than sliding out of view.
 
 | Setting | Meaning |
 |---|---|
 | `STEAL_BASELINE` | `median` (default, robust to a price spike) or `mean` (the literal average; roughly half as many alerts on this data) |
 | `STEAL_REQUIRE_ALL_TIME_LOW` | Off by default. On, a steal must *also* sit at or within 2% of its lowest recorded price. |
+| `STEAL_MIN_HISTORY_DAYS` | 30 — days of history before a baseline is trusted |
+| `STEAL_BASELINE_WINDOW_DAYS` | `None` (all history); set a number for a rolling window |
 
 The history minimum is the load-bearing guard: without it every newly listed
 product is trivially its own low and alerts on sight. Measured on 782 products

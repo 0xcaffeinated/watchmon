@@ -76,7 +76,7 @@ def print_status(threshold: int) -> int:
     for brand, count in summary["by_brand"]:
         print(f"                {brand or '?':10} {count}")
     days_needed = config.STEAL_MIN_HISTORY_DAYS
-    print(f"steal rule:     >={config.STEAL_DISCOUNT:.0%} below 30d median, at/near all-time low,")
+    print(f"steal rule:     >={config.STEAL_DISCOUNT:.0%} below the all-history {config.STEAL_BASELINE},")
     print(f"                after >={days_needed} days of history, price >= ₹{config.STEAL_MIN_PRICE:,}")
 
     alerted = state.get("alerted", {})
