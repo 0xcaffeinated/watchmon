@@ -147,7 +147,9 @@ class Notifier:
     """Fans one alert out to every available channel."""
 
     def __init__(self, channels=None):
-        self.channels = channels if channels is not None else [NtfyNotifier(), MacNotifier()]
+        if channels is None:
+            channels = [NtfyNotifier(), MacNotifier(), TelegramNotifier()]
+        self.channels = channels
 
     def send(self, title: str, message: str, url: str | None = None) -> dict[str, bool]:
         results = {}
@@ -165,7 +167,22 @@ class Notifier:
     def announce(self, deals: list[Deal], threshold: int) -> None:
         for deal in deals:
             title, message = format_deal(deal, threshold)
-            self.send(title, message, deal.url)
+            for channel in self.channels:
+                if not channel.available():
+                    continue
+                # A channel may decline a deal — Telegram is an audience, and
+                # a private price nudge is not audience content.
+                accepts = getattr(channel, "accepts", None)
+                if accepts is not None and not accepts(deal):
+                    continue
+                try:
+                    if hasattr(channel, "publish"):
+                        published = channel.publish(deal)
+                        log.info("published to %s: %s", channel.name, published)
+                    else:
+                        channel.send(title, message, deal.url)
+                except Exception as exc:  # noqa: BLE001 - never kill the run
+                    log.warning("%s notifier raised %s", channel.name, exc)
             log.info(
                 "ALERT [%s] %s ₹%s %s — %s | %s",
                 deal.kind,
@@ -175,3 +192,114 @@ class Notifier:
                 deal.reason or deal.stock_note,
                 deal.url,
             )
+
+
+# ------------------------------------------------------------ publishing ----
+
+
+def _file_or_env(env_name: str, path) -> str | None:
+    """Env first (CI secret), then a gitignored file (local)."""
+    from_env = os.environ.get(env_name, "").strip()
+    if from_env:
+        return from_env
+    try:
+        return path.read_text().strip() or None
+    except OSError:
+        return None
+
+
+def telegram_token() -> str | None:
+    return _file_or_env("TELEGRAM_TOKEN", config.TELEGRAM_TOKEN_FILE)
+
+
+def telegram_chat() -> str | None:
+    return _file_or_env("TELEGRAM_CHAT_ID", config.TELEGRAM_CHAT_FILE)
+
+
+def _escape(text: str) -> str:
+    """Telegram HTML mode: only these three need escaping."""
+    return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def format_post(deal: Deal, link: str) -> str:
+    """A post that earns its place: the price, and why it is notable.
+
+    The price history is the whole differentiator — anyone can write "80% off",
+    almost nobody can say what this product has actually cost for a month.
+    """
+    from . import links as _links
+
+    title = _escape(deal.title[:90])
+    lines = [f"🔥 <b>{title}</b>", "", f"<b>₹{deal.price:,}</b>"]
+
+    stats = deal.stats
+    if stats.median:
+        saving = stats.median - deal.price
+        lines.append(f"Usually ₹{stats.median:,} — you save ₹{saving:,}")
+    if stats.min_ever is not None and stats.days:
+        lines.append(
+            f"📉 Cheapest in {stats.days} days of tracking "
+            f"(previous low ₹{stats.min_ever:,})"
+        )
+    if not deal.in_stock:
+        lines.append("⚠️ Listing shows out of stock — check before ordering")
+
+    lines += ["", f'<a href="{_escape(link)}">Buy now →</a>']
+    if _links.is_configured():
+        lines += ["", f"<i>{_escape(config.AFFILIATE_DISCLOSURE)}</i>"]
+    return "\n".join(lines)
+
+
+class TelegramNotifier:
+    """Publishes deals to a channel. Audience-facing, so it filters."""
+
+    name = "telegram"
+
+    def available(self) -> bool:
+        return bool(telegram_token() and telegram_chat())
+
+    def accepts(self, deal: Deal) -> bool:
+        """Only kinds worth an audience, and only with evidence behind them."""
+        if deal.kind not in config.TELEGRAM_PUBLISH_KINDS:
+            return False
+        return bool(deal.stats.median)
+
+    def send(self, title: str, message: str, url: str | None = None) -> bool:
+        return self._post(message if message else title)
+
+    def publish(self, deal: Deal) -> bool:
+        from . import links as _links
+
+        link = _links.affiliate_url(deal.url)
+        return self._post(format_post(deal, link))
+
+    def _post(self, text: str) -> bool:
+        token, chat = telegram_token(), telegram_chat()
+        if not (token and chat):
+            return False
+
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        body = urllib.parse.urlencode(
+            {
+                "chat_id": chat,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": "false",
+            }
+        ).encode()
+        request = urllib.request.Request(
+            f"{config.TELEGRAM_API}/bot{token}/sendMessage", data=body, method="POST"
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=config.TELEGRAM_TIMEOUT_SEC) as r:
+                ok = 200 <= r.status < 300
+                if not ok:
+                    log.warning("telegram returned HTTP %s", r.status)
+                return ok
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            # Publishing must never take down a check or trip the backoff.
+            log.warning("telegram publish failed (%s)", exc)
+            return False

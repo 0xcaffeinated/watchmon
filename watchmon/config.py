@@ -158,6 +158,10 @@ HISTORY_DB = ROOT / "history.db"
 LOG_FILE = ROOT / "logs" / "monitor.log"
 DEALS_FILE = ROOT / "logs" / "deals.jsonl"
 NTFY_TOPIC_FILE = ROOT / "ntfy_topic.txt"
+# {"publisher_id": "...", "redirector": "https://...", "retailers": {"a": "..."}}
+AFFILIATE_FILE = ROOT / "affiliate.json"
+TELEGRAM_TOKEN_FILE = ROOT / "telegram_token.txt"
+TELEGRAM_CHAT_FILE = ROOT / "telegram_chat.txt"
 
 # ---------------------------------------------------------------- search ----
 
@@ -258,6 +262,17 @@ NET_RETRIES = 6
 NET_RETRY_DELAY_SEC = 10
 
 # ---------------------------------------------------------- notification ----
+
+# --- publishing -------------------------------------------------------------
+# Telegram is an audience channel, not a personal one. Only kinds listed here
+# are published: a price-ceiling hit is a private nudge, while a steal carries
+# the price-history evidence that makes a post worth reading.
+TELEGRAM_PUBLISH_KINDS = ("steal",)
+TELEGRAM_API = "https://api.telegram.org"
+TELEGRAM_TIMEOUT_SEC = 15
+# Required on every post: undisclosed affiliate links are deceptive, and are
+# what gets accounts and communities banned.
+AFFILIATE_DISCLOSURE = "Affiliate link — I may earn a commission at no cost to you."
 
 NTFY_SERVER = "https://ntfy.sh"
 NTFY_TIMEOUT_SEC = 10

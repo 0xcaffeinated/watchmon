@@ -120,6 +120,27 @@ def test_notify() -> int:
     return 0
 
 
+def preview_post() -> int:
+    """Show exactly what would be published, and whether it is monetised."""
+    from watchmon import links
+    from watchmon.models import Deal, PriceStats
+    from watchmon.notify import TelegramNotifier, format_post
+
+    sample = Deal(
+        pid="itm123", url=config.SITE_BASE + "/some-watch/p/itm123", brand="invicta",
+        title="INVICTA Pro Diver Automatic Black Dial Analog Watch - For Men",
+        price=7200, kind="steal", reason="40% below its median",
+        stats=PriceStats(days=21, median=11900, min_ever=7500),
+    )
+    channel = TelegramNotifier()
+    print(f"affiliate links : {'configured' if links.is_configured() else 'NOT configured (plain links)'}")
+    print(f"telegram channel: {'ready' if channel.available() else 'NOT configured (token/chat missing)'}")
+    print(f"publishes kinds : {', '.join(config.TELEGRAM_PUBLISH_KINDS)}")
+    print("\n--- post preview ---")
+    print(format_post(sample, links.affiliate_url(sample.url)))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -133,6 +154,8 @@ def main() -> int:
     ap.add_argument("--status", action="store_true", help="print run state and history summary")
     ap.add_argument("--history", metavar="PID", help="price series for one product id")
     ap.add_argument("--test-notify", action="store_true", help="fire a sample alert on all channels")
+    ap.add_argument("--preview-post", action="store_true",
+                    help="print the Telegram post for a sample deal without sending")
     ap.add_argument("--report", action="store_true", help="print a 24h health report")
     ap.add_argument("--report-push", action="store_true", help="send that report to phone + Mac")
     ap.add_argument("--show-browser", action="store_true", help="run Chromium headed (debugging)")
@@ -147,6 +170,8 @@ def main() -> int:
         return print_history(args.history)
     if args.test_notify:
         return test_notify()
+    if args.preview_post:
+        return preview_post()
     if args.report or args.report_push:
         from watchmon.report import format_report, gather
 
