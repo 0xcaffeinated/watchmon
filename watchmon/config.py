@@ -144,6 +144,16 @@ MAX_VERIFY_PER_RUN = 40
 STEAL_DISCOUNT = 0.40  # >= 40% below its 30-day median
 STEAL_MEDIAN_WINDOW_DAYS = 30
 STEAL_MIN_HISTORY_DAYS = 14  # distinct days before a median means "normal"
+# Which 30-day statistic the discount is measured against.
+#   "median" — robust to a price spike or an MRP-only day
+#   "mean"   — the literal average; on this data it fires about half as often,
+#              because a single cheap day drags it down
+STEAL_BASELINE = "median"
+
+# Whether a steal must ALSO be at or near its all-time low. Off: the discount
+# against the 30-day baseline is the whole test. On this data both settings
+# produced the same 22 alerts, since a 40% drop is nearly always a low anyway.
+STEAL_REQUIRE_ALL_TIME_LOW = False
 STEAL_NEAR_LOW_RATIO = 1.02  # within 2% of the cheapest ever seen
 # Below this, percentages are noise and the hits are all cheap quartz: at a
 # ₹1,500 floor, every one of the 16-20 dips in 10 days was a sub-₹4,000 Casio.

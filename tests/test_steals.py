@@ -24,8 +24,8 @@ def stats(days=config.STEAL_MIN_HISTORY_DAYS + 5, median=10000, min_ever=9000):
 # ------------------------------------------------------------- the rule -----
 
 
-def test_steal_needs_both_a_discount_and_an_all_time_low():
-    # 55% off the median and below the old low.
+def test_a_discount_against_the_baseline_is_a_steal():
+    # 55% off the 30-day median.
     ok, reason = steals.is_steal(4500, stats(median=10000, min_ever=4600))
     assert ok
     assert "55%" in reason and "10,000" in reason
@@ -37,17 +37,49 @@ def test_small_discount_is_not_a_steal():
     assert f"need {config.STEAL_DISCOUNT:.0%}" in reason
 
 
-def test_big_discount_but_not_near_the_low_is_not_a_steal():
-    """Cheap against the median yet well above what it has actually sold for:
-    that is a median skewed by a price spike, not a bargain."""
+def test_the_baseline_discount_is_the_whole_test_by_default():
+    """Default: a big enough discount against the 30-day baseline is enough,
+    even well above the all-time low."""
+    ok, reason = steals.is_steal(4500, stats(median=10000, min_ever=3000))
+    assert ok and "55% below" in reason
+
+
+def test_all_time_low_can_be_required(monkeypatch):
+    """Opt-in second bar, for when a baseline skewed by a price spike is a
+    worry: cheap against the median but above what it has actually sold for."""
+    monkeypatch.setattr(config, "STEAL_REQUIRE_ALL_TIME_LOW", True)
     ok, reason = steals.is_steal(4500, stats(median=10000, min_ever=3000))
     assert not ok and "all-time low" in reason
 
 
-def test_within_tolerance_of_the_low_still_counts():
+def test_within_tolerance_of_the_low_still_counts(monkeypatch):
     # 2% tolerance: matching the previous low to the rupee is too strict.
+    monkeypatch.setattr(config, "STEAL_REQUIRE_ALL_TIME_LOW", True)
     assert steals.is_steal(4590, stats(median=10000, min_ever=4500))[0] is True
     assert steals.is_steal(4700, stats(median=10000, min_ever=4500))[0] is False
+
+
+# ------------------------------------------------------------- baseline -----
+
+
+def test_baseline_defaults_to_the_median():
+    value, label = steals.baseline_of(stats(median=10000))
+    assert value == 10000 and label == "median"
+
+
+def test_baseline_can_be_the_literal_average(monkeypatch):
+    monkeypatch.setattr(config, "STEAL_BASELINE", "mean")
+    st = PriceStats(days=20, median=10000, mean=6000, min_ever=4000)
+    value, label = steals.baseline_of(st)
+    assert value == 6000 and label == "average"
+    # Same price, different verdict: 4,500 is 55% off the median but only 25%
+    # off the average, so the average is the stricter test on this shape.
+    assert steals.is_steal(4500, st)[0] is False
+
+
+def test_missing_baseline_statistic_is_not_a_steal(monkeypatch):
+    monkeypatch.setattr(config, "STEAL_BASELINE", "mean")
+    assert steals.is_steal(4500, PriceStats(days=20, median=10000, min_ever=1))[0] is False
 
 
 def test_no_alert_before_enough_history():

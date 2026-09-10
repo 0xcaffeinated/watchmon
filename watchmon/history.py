@@ -118,6 +118,7 @@ class PriceHistory:
         return PriceStats(
             days=len(rows),
             median=int(statistics.median(window)),
+            mean=int(statistics.mean(window)),
             min_ever=min(price for _, price in rows),
         )
 
@@ -148,6 +149,7 @@ class PriceHistory:
             out[pid] = PriceStats(
                 days=len(prices),
                 median=int(statistics.median(prices[:window_days])),
+                mean=int(statistics.mean(prices[:window_days])),
                 min_ever=min(prices),
             )
         return out

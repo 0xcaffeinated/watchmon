@@ -79,16 +79,20 @@ tests/             195 tests, no network required
 on the product page before alerting: price from JSON-LD, movement from the
 specifications table (which must say automatic or self-winding, not hand-wound).
 
-**Steal.** Wide sweep records the day's cheapest price for every watch of the
-watched brands. A steal must clear **both** bars — at least `STEAL_DISCOUNT`
-below its 30-day median, **and** at or within 2% of its lowest price ever
-recorded — and only after `STEAL_MIN_HISTORY_DAYS` of history, above
-`STEAL_MIN_PRICE`.
+**Steal.** Wide sweeps record the day's cheapest price for every tracked
+product. A steal is a price at least `STEAL_DISCOUNT` below its **30-day
+baseline**, once the product has `STEAL_MIN_HISTORY_DAYS` of history and costs
+at least `STEAL_MIN_PRICE`.
 
-Both bars are required. Discount alone fires on a median skewed by a price
-spike; all-time-low alone fires on a trivial dip. The history minimum is the
-load-bearing guard: without it every newly listed product is its own all-time
-low and alerts immediately.
+| Setting | Meaning |
+|---|---|
+| `STEAL_BASELINE` | `median` (default, robust to a price spike) or `mean` (the literal average; roughly half as many alerts on this data) |
+| `STEAL_REQUIRE_ALL_TIME_LOW` | Off by default. On, a steal must *also* sit at or within 2% of its lowest recorded price. |
+
+The history minimum is the load-bearing guard: without it every newly listed
+product is trivially its own low and alerts on sight. Measured on 782 products
+with enough history, requiring the all-time low changed nothing — 22 alerts
+either way — because a drop that large is nearly always a low anyway.
 
 ## Hard-won details
 

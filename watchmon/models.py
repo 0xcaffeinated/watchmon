@@ -85,6 +85,7 @@ class PriceStats:
 
     days: int = 0
     median: int | None = None
+    mean: int | None = None
     min_ever: int | None = None
 
     @property
