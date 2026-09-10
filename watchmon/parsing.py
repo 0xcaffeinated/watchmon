@@ -245,6 +245,32 @@ def watched_listings(listings: list[Listing]) -> list[Listing]:
     return kept
 
 
+def tracked_by(listings: list[Listing], rule: Rule) -> list[Listing]:
+    """Listings this rule wants in the price history.
+
+    Deliberately looser than matches_rule: the wide sweep records every product
+    of a brand, not only the ones that could alert, so a watch's median is built
+    from the whole catalogue rather than from automatics alone. A rule with no
+    brands is a category sweep and keeps everything it finds.
+    """
+    kept = []
+    for item in listings:
+        haystack = f"{item.title} {item.url}"
+        if any(re.search(m, haystack, re.IGNORECASE) for m in rule.mute):
+            continue
+        if is_ignored(item.title, item.url):
+            continue
+        if rule.brands:
+            brand = brand_of(item.title, item.url)
+            if brand is None or not any(
+                re.search(rf"\b{re.escape(b)}\b", haystack, re.IGNORECASE) for b in rule.brands
+            ):
+                continue
+            item.brand = item.brand or brand
+        kept.append(item)
+    return kept
+
+
 def select_candidates(listings: list[Listing], threshold: int) -> list[Listing]:
     """Automatics worth opening the product page for, for the ₹8,000 rule.
 

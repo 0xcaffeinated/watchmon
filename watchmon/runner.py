@@ -202,11 +202,14 @@ class Monitor:
         tracked: dict[str, Listing] = {}
 
         for rule in config.RULES:
+            if not rule.alerts:
+                continue  # history-only: swept below, never a candidate
             ceiling = rule.ceiling if rule.ceiling is not None else self.threshold
             for key, scraper in open_sources.items():
                 source = sources.by_key(key)
                 for query in rule.queries_for(key):
-                    listings = scraper.sweep(query, source.max_pages, label=f"{key}/{query}")
+                    pages = rule.max_pages or source.max_pages
+                    listings = scraper.sweep(query, pages, label=f"{key}/{query}")
                     found = 0
                     for item in listings:
                         if not parsing.matches_rule(item.title, item.url, rule):
@@ -223,13 +226,16 @@ class Monitor:
             for rule in config.RULES:
                 for key, scraper in open_sources.items():
                     source = sources.by_key(key)
-                    pages = config.MAX_PAGES_HISTORY if key == "a" else source.max_pages
+                    pages = rule.max_pages or (
+                        config.MAX_PAGES_HISTORY if key == "a" else source.max_pages
+                    )
                     for query in rule.queries_for(key, wide=True):
                         listings = scraper.sweep(query, pages, label=f"{key}/{query}")
-                        kept = parsing.watched_listings(listings)
+                        kept = parsing.tracked_by(listings, rule)
                         for item in kept:
+                            item.rule = item.rule or rule.name
                             tracked.setdefault(item.pid, item)
-                        log.info("%s/%s: %d listings, %d watched", key, query, len(listings), len(kept))
+                        log.info("%s/%s: %d listings, %d tracked", key, query, len(listings), len(kept))
         else:
             log.info(
                 "wide history sweep not due — tracking %d from the rule sweeps", len(tracked)
@@ -238,7 +244,13 @@ class Monitor:
         return candidates, list(tracked.values())
 
     def _screen_steals(self, tracked: list[Listing], now: float) -> list[tuple[Listing, PriceStats, str]]:
-        """Which tracked products look like steals on their card price."""
+        """Which tracked products look like steals on their card price.
+
+        Restricted to rules that alert. Everything else is swept purely to give
+        the database depth, and must never reach the phone.
+        """
+        alerting = {r.name for r in config.RULES if r.alerts}
+        tracked = [x for x in tracked if x.rule is None or x.rule in alerting]
         priced = {x.pid: x.price for x in tracked if x.price is not None}
         stats = self.history.stats_many(
             list(priced), now, config.STEAL_MEDIAN_WINDOW_DAYS

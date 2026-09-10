@@ -49,6 +49,32 @@ RULES = (
     ),
 )
 
+# ------------------------------------------------------ history-only ------
+# Swept purely to give the price database depth, and never allowed to notify:
+# `alerts=False` keeps them out of both the ceiling rule and steal screening.
+#
+# `brands=()` means the query is a category, swept once instead of per brand.
+# Searches are price-ascending, so each sweep samples the same cheap end of a
+# catalogue every day — which is what a median needs. Depth is deliberately
+# shallow (max_pages) because history wants the same products daily, not broad
+# coverage of a category nobody is alerted about.
+
+HISTORY_CATEGORIES = (
+    "headphones", "smartwatch", "laptop", "mobile", "shoes",
+    "backpack", "keyboard", "monitor", "power+bank", "trimmer",
+)
+
+RULES += tuple(
+    Rule(
+        name=f"history: {category.replace('+', ' ')}",
+        brands=(),
+        history_sources={"a": category},
+        alerts=False,
+        max_pages=4,
+    )
+    for category in HISTORY_CATEGORIES
+)
+
 # Model families to never alert on, matched case-insensitively against title,
 # page heading and URL.
 #

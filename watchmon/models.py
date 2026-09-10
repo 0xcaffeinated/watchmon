@@ -41,12 +41,24 @@ class Rule:
     require_spec: dict[str, str] = field(default_factory=dict)
     reject_spec: dict[str, str] = field(default_factory=dict)
     mute: tuple[str, ...] = ()
+    # History-only rules feed the price database and never notify. That is what
+    # lets the catalogue be swept broadly without burying the alerts that
+    # matter in noise from categories nobody asked to hear about.
+    alerts: bool = True
+    # Page budget for this rule's sweeps. Broad history-only categories use a
+    # smaller one: history needs the same products sampled every day, not deep
+    # coverage of a catalogue nobody alerts on.
+    max_pages: int | None = None
 
     def queries_for(self, source_key: str, wide: bool = False) -> list[str]:
         table = self.history_sources if wide else self.sources
         template = table.get(source_key)
         if not template:
             return []
+        # No brands means the query is a category, swept once rather than
+        # per-brand.
+        if not self.brands:
+            return [template]
         return [template.format(brand=b) for b in self.brands]
 
 
