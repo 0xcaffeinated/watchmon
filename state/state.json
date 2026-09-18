@@ -3,11 +3,11 @@
     "steal:itm1445529ab5e20": 5600,
     "steal:itmb378753880422": 5600
   },
-  "last_attempt_ts": 1789691620.5898929,
-  "updated": "2026-09-18T00:41:43+00:00",
-  "failures": 0,
-  "last_failure": null,
-  "backoff_until_ts": 0,
+  "last_attempt_ts": 1789709207.225291,
+  "updated": "2026-09-18T05:28:07+00:00",
+  "failures": 1,
+  "last_failure": "network unreachable",
+  "backoff_until_ts": 1789709807.225291,
   "last_success_ts": 1789691620.5898929,
   "last_history_ts": 1789691620.5898929,
   "history_offset": 14
